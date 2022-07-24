@@ -1,27 +1,18 @@
 package workers
 
-import "sync"
+import (
+	"strings"
+	"sync"
+)
 
 const (
 	MAX_WORKERS = 3
+	ROOT_PATH   = "C:"
 )
-
-type WorkerPool struct {
-	NumWorkers int
-	DirMap     *DirMap
-	Mu         sync.Mutex
-}
-
-func NewWorkerPool(NumWorkers int) *WorkerPool {
-	return &WorkerPool{
-		NumWorkers: NumWorkers,
-		DirMap:     NewDirMap(),
-	}
-}
 
 type DirMap struct {
 	DirMap map[string]bool
-	Mu sync.Mutex
+	Mu     sync.Mutex
 }
 
 func NewDirMap() *DirMap {
@@ -30,7 +21,7 @@ func NewDirMap() *DirMap {
 	}
 }
 
-func(d *DirMap) Append(dir string) {
+func (d *DirMap) Append(dir string) {
 	d.Mu.Lock()
 	defer d.Mu.Unlock()
 	if d.DirMap[dir] == false {
@@ -38,17 +29,9 @@ func(d *DirMap) Append(dir string) {
 	}
 }
 
-func (wp *WorkerPool) StartWorkers(work_func func(string, string), startRoot, target string) {
-	var wg sync.WaitGroup
+// TODO
+func (d *DirMap) SearchDirRecur(startPath, target string) {
+	if strings.Compare(ROOT_PATH, startPath) != 0 {
 
-	// run each worker
-	for i := 0; i < wp.NumWorkers; i++ {
-		wg.Add(1)
-		go func() {
-			work_func(startRoot, target)
-			wg.Done()
-		}()
 	}
-
-	wg.Wait()
 }
