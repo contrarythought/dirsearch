@@ -32,6 +32,19 @@ func ReadDirRecur(startPath string, target string) bool {
 	return found
 }
 
+// TODO
+func ReadDirectories(startPath, target string, inCh chan<- string) {
+	paths := make([]string, 0)
+
+	// append root to paths
+	paths = append(paths, startPath)
+
+	// iterate ONLY through directory paths, sending each to a channel that will be worked on by a goroutine
+	for len(paths) > 0 {
+
+	}
+}
+
 func main() {
 	if len(os.Args) != 2 {
 		log.Fatalf("usage <file to search>\n")
