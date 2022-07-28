@@ -4,13 +4,16 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"strconv"
 	"strings"
+	"sync"
 )
 
 const (
 	ROOT_PATH = "C:"
 )
 
+/*
 func ReadDirRecur(startPath string, target string) bool {
 	dirEntries, err := os.ReadDir(startPath + "\\")
 	if err != nil {
@@ -31,27 +34,66 @@ func ReadDirRecur(startPath string, target string) bool {
 	}
 	return found
 }
+*/
 
 // TODO
-func ReadDirectories(startPath, target string, inCh chan<- string) {
-	paths := make([]string, 0)
+func ReadDirectories(startPath string, inCh chan<- string) {
+	entries, err := os.ReadDir(startPath + "\\")
+	if err != nil {
+		fmt.Println(err.Error())
+		return
+	}
 
-	// append root to paths
-	paths = append(paths, startPath)
-
-	// iterate ONLY through directory paths, sending each to a channel that will be worked on by a goroutine
-	for len(paths) > 0 {
-
+	for _, entry := range entries {
+		if entry.IsDir() {
+			fmt.Println("Sending ", entry.Name(), " into channel")
+			inCh <- startPath + "\\" + entry.Name()
+			ReadDirectories(startPath+"\\"+entry.Name(), inCh)
+		}
 	}
 }
 
+func SearchDir(dir, target string) bool {
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		return false
+	}
+	fmt.Println("\tOpened ", dir)
+	for _, entry := range entries {
+		fmt.Println("\t\tLooking at: ", entry.Name())
+		if strings.Compare(entry.Name(), target) == 0 {
+			return true
+		}
+	}
+	return false
+}
+
 func main() {
-	if len(os.Args) != 2 {
-		log.Fatalf("usage <file to search>\n")
+	if len(os.Args) != 3 {
+		log.Fatalf("usage <number of threads> <file to search>\n")
 	}
-	if found := ReadDirRecur(ROOT_PATH, os.Args[1]); found {
-		fmt.Println("Successfully found: ", os.Args[1])
-	} else {
-		fmt.Println("Failed to find: ", os.Args[1])
+
+	num_workers, err := strconv.Atoi(os.Args[1])
+	if err != nil {
+		log.Fatal(err)
 	}
+
+	directory := make(chan string)
+
+	go ReadDirectories(ROOT_PATH, directory)
+
+	var wg sync.WaitGroup
+	for i := 0; i < num_workers; i++ {
+		wg.Add(1)
+		go func() {
+			for entries := range directory {
+				if SearchDir(entries, os.Args[2]) {
+					fmt.Println("Successfully found ", os.Args[2])
+					os.Exit(0)
+				}
+			}
+			wg.Done()
+		}()
+	}
+	wg.Wait()
 }
