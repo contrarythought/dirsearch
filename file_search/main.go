@@ -2,15 +2,16 @@ package main
 
 import (
 	"fmt"
+	"io/fs"
 	"log"
 	"os"
-	"strconv"
 	"strings"
 	"sync"
 )
 
 const (
-	ROOT_PATH = "C:"
+	ROOT_PATH   = "C:"
+	MAX_THREADS = 35
 )
 
 /*
@@ -68,32 +69,72 @@ func SearchDir(dir, target string) bool {
 	return false
 }
 
+func SearchDirFast(dir, target string) bool {
+	entries, err := os.ReadDir(dir + "\\")
+	if err != nil {
+		return false
+	}
+	var wg sync.WaitGroup
+	for _, entry := range entries {
+		//fmt.Println("Checking: ", entry.Name())
+		if entry.IsDir() && !strings.Contains(entry.Name(), target) {
+			wg.Add(1)
+			go func(entry fs.DirEntry) {
+				//fmt.Println("\tin thread...Checking: ", entry.Name())
+				if SearchDirFast(dir+"\\"+entry.Name(), target) {
+					fmt.Println("Found: ", target)
+					os.Exit(0)
+				}
+				wg.Done()
+			}(entry)
+		} else {
+			if strings.Contains(entry.Name(), target) {
+				return true
+			}
+		}
+		wg.Wait()
+	}
+
+	return false
+}
+
 func main() {
 	if len(os.Args) != 3 {
 		log.Fatalf("usage <number of threads> <file to search>\n")
 	}
 
-	num_workers, err := strconv.Atoi(os.Args[1])
-	if err != nil {
-		log.Fatal(err)
+	if SearchDirFast(ROOT_PATH, os.Args[2]) {
+		fmt.Println("FOUND")
+	} else {
+		fmt.Println("FAILED TO FIND")
 	}
+	/*
+		num_workers, err := strconv.Atoi(os.Args[1])
+		if err != nil {
+			log.Fatal(err)
+		}
+	*/
 
-	directory := make(chan string)
+	// directory := make(chan string)
 
-	go ReadDirectories(ROOT_PATH, directory)
+	// go ReadDirectories(ROOT_PATH, directory)
 
-	var wg sync.WaitGroup
-	for i := 0; i < num_workers; i++ {
-		wg.Add(1)
-		go func() {
-			for entries := range directory {
-				if SearchDir(entries, os.Args[2]) {
-					fmt.Println("Successfully found ", os.Args[2])
-					os.Exit(0)
+	/*
+		start := time.Now()
+		var wg sync.WaitGroup
+		for i := 0; i < num_workers; i++ {
+			wg.Add(1)
+			go func() {
+				for entries := range directory {
+					if SearchDir(entries, os.Args[2]) {
+						fmt.Println("Successfully found ", os.Args[2])
+						fmt.Println("time spent: ", time.Since(start))
+						os.Exit(0)
+					}
 				}
-			}
-			wg.Done()
-		}()
-	}
-	wg.Wait()
+				wg.Done()
+			}()
+		}
+		wg.Wait()
+	*/
 }
